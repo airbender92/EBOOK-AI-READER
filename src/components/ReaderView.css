@@ -35,43 +35,44 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ===================== PDF ===================== */
-.reader-pdf-container {
+/* ===================== PDF: Scrollable All-Pages ===================== */
+.reader-pdf-scroll {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 12px;
   min-height: 100%;
 }
 
-.reader-pdf-page {
+.pdf-page-wrapper {
   position: relative;
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
-.reader-pdf-canvas {
+.pdf-page-wrapper canvas {
   display: block;
   max-width: 100%;
 }
 
-/* ---- PDF Text Layer (transparent overlay for selection) ---- */
-.reader-text-layer {
+.pdf-text-layer {
   position: absolute;
   top: 0; left: 0;
-  overflow: hidden;
   z-index: 2;
-  opacity: 1;
   line-height: 1;
+  overflow: hidden;
 }
 
-.reader-text-layer span {
+.pdf-text-layer span {
   cursor: text;
   user-select: text;
   -webkit-user-select: text;
 }
 
-.reader-text-layer span::selection {
+.pdf-text-layer span::selection {
   background: rgba(79, 110, 247, 0.3);
 }
 

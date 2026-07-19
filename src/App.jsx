@@ -148,30 +148,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeydown);
   }, [openBook]);
 
-  // ===================== Page Navigation Events =====================
-  // Listen for custom events from Toolbar to navigate pages
-  useEffect(() => {
-    function handleJumpToPage(e) {
-      const page = e.detail;
-      if (page >= 1 && page <= totalPages) {
-        setCurrentPage(page);
-      }
-    }
-    function handleNavigatePage(e) {
-      const delta = e.detail;
-      const newPage = currentPage + delta;
-      if (newPage >= 1 && newPage <= totalPages) {
-        setCurrentPage(newPage);
-      }
-    }
-    window.addEventListener('jump-to-page', handleJumpToPage);
-    window.addEventListener('navigate-page', handleNavigatePage);
-    return () => {
-      window.removeEventListener('jump-to-page', handleJumpToPage);
-      window.removeEventListener('navigate-page', handleNavigatePage);
-    };
-  }, [currentPage, totalPages]);
-
   // ===================== AI Action from Floating Bar =====================
   // ReaderView dispatches 'ai-action' with { mode, text } when user clicks a button in the floating toolbar
   useEffect(() => {

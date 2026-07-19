@@ -1,0 +1,91 @@
+/**
+ * BookList.css — Styles for the book selection modal
+ */
+
+.book-list-modal {
+  width: 520px;
+}
+
+.book-section {
+  margin-bottom: 24px;
+}
+
+.book-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.book-empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.book-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.book-item:hover {
+  background: var(--bg-hover);
+}
+
+.book-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.bookmark-icon {
+  background: #fef3c7;
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.book-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.book-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-item-path {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,201 @@
+/**
+ * ReaderView.css — Styles for the reader panel (v2)
+ * Supports: PDF text layer, EPUB HTML, selection floating bar
+ */
+
+.reader-view {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  background: var(--bg-primary);
+}
+
+/* ---- Loading & Error States ---- */
+.reader-loading,
+.reader-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.reader-error p { color: var(--danger); }
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===================== PDF ===================== */
+.reader-pdf-container {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  min-height: 100%;
+}
+
+.reader-pdf-page {
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.reader-pdf-canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---- PDF Text Layer (transparent overlay for selection) ---- */
+.reader-text-layer {
+  position: absolute;
+  top: 0; left: 0;
+  overflow: hidden;
+  z-index: 2;
+  opacity: 1;
+  line-height: 1;
+}
+
+.reader-text-layer span {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.reader-text-layer span::selection {
+  background: rgba(79, 110, 247, 0.3);
+}
+
+/* ===================== EPUB ===================== */
+.reader-epub-container {
+  padding: 12px 20px;
+  user-select: text;
+  -webkit-user-select: text;
+  min-height: 100%;
+}
+
+.reader-epub-container img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  margin: 8px 0;
+}
+
+.reader-epub-container h1,
+.reader-epub-container h2,
+.reader-epub-container h3,
+.reader-epub-container h4 {
+  color: var(--text-primary);
+  margin: 1em 0 0.5em;
+}
+
+.reader-epub-container p {
+  margin: 0.5em 0;
+  color: var(--text-primary);
+}
+
+.reader-epub-container blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+/* ===================== TXT ===================== */
+.reader-txt-container {
+  user-select: text;
+  -webkit-user-select: text;
+  min-height: 100%;
+}
+
+.reader-txt-content {
+  font-family: 'Georgia', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text-primary);
+  margin: 0;
+  max-width: 100%;
+}
+
+/* ===================== Floating Selection Bar ===================== */
+.selection-action-bar {
+  position: absolute;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  overflow: hidden;
+  animation: barSlideIn 0.15s ease;
+  white-space: nowrap;
+}
+
+.selection-text-preview {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--border);
+}
+
+.selection-actions {
+  display: flex;
+  gap: 0;
+}
+
+.selection-actions button {
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  border-right: 1px solid var(--border-light);
+}
+
+.selection-actions button:last-child { border-right: none; }
+
+.selection-actions button:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+@keyframes barSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== Bookmark Indicator ===================== */
+.bookmark-indicator {
+  position: absolute;
+  top: 0; right: 8px;
+  width: 0; height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 12px solid var(--accent);
+  opacity: 0.5;
+}
+
+.bookmark-indicator.active { opacity: 1; }
+
+/* ===================== Selection Color ===================== */
+.reader-view ::selection {
+  background: rgba(79, 110, 247, 0.25);
+}

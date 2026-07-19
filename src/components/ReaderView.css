@@ -46,33 +46,35 @@
 }
 
 .pdf-page-wrapper {
-  position: relative;
+  background: #fff;
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-sm);
   overflow: hidden;
   flex-shrink: 0;
+  width: 100%;
+  max-width: 850px;
+}
+
+.dark .pdf-page-wrapper {
+  background: #2a2a2e;
 }
 
 .pdf-page-wrapper canvas {
   display: block;
-  max-width: 100%;
+  width: 100%;
+  height: auto;
 }
 
-.pdf-text-layer {
-  position: absolute;
-  top: 0; left: 0;
-  z-index: 2;
-  line-height: 1;
-  overflow: hidden;
+.pdf-text-content {
+  font-family: 'Georgia', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
 }
 
-.pdf-text-layer span {
-  cursor: text;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.pdf-text-layer span::selection {
+.pdf-text-content::selection {
   background: rgba(79, 110, 247, 0.3);
 }
 
@@ -112,76 +114,67 @@
 }
 
 /* ===================== TXT ===================== */
-.reader-txt-container {
+.reader-txt {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  max-width: 100%;
   user-select: text;
   -webkit-user-select: text;
   min-height: 100%;
-}
-
-.reader-txt-content {
   font-family: 'Georgia', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  color: var(--text-primary);
-  margin: 0;
-  max-width: 100%;
 }
 
 /* ===================== Floating Selection Bar ===================== */
-.selection-action-bar {
-  position: absolute;
-  z-index: 100;
+.sel-bar {
+  position: fixed;
+  z-index: 99999;
   display: flex;
   align-items: center;
-  gap: 0;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  padding: 0;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12),0 2px 6px rgba(0,0,0,0.06);
   overflow: hidden;
-  animation: barSlideIn 0.15s ease;
   white-space: nowrap;
+  font-size: 13px;
+  user-select: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
 }
+.sel-bar.on { opacity: 1; pointer-events: auto; }
 
-.selection-text-preview {
-  padding: 6px 10px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  max-width: 120px;
+.sel-prev {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: #888;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  background: #f7f8fa;
 }
 
-.selection-actions {
-  display: flex;
-  gap: 0;
-}
-
-.selection-actions button {
-  padding: 6px 10px;
+.sel-acts { display: flex; }
+.sel-acts button {
+  padding: 7px 12px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: #333;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  border-right: 1px solid var(--border-light);
+  transition: background 0.15s;
+  border-right: 1px solid rgba(0,0,0,0.05);
 }
-
-.selection-actions button:last-child { border-right: none; }
-
-.selection-actions button:hover {
-  background: var(--accent-light);
-  color: var(--accent);
+.sel-acts button:last-child { border-right: none; }
+.sel-acts button:hover { background: rgba(79,110,247,0.08); color: #4f6ef7; }
+.sel-acts button.ask {
+  background: linear-gradient(135deg,#4f6ef7,#6e8aff);
+  color: #fff;
+  font-weight: 500;
 }
-
-@keyframes barSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.sel-acts button.ask:hover { background: linear-gradient(135deg,#3b5de7,#5b78f0); color: #fff; }
 
 /* ===================== Bookmark Indicator ===================== */
 .bookmark-indicator {

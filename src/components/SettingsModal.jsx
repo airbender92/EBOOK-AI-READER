@@ -13,8 +13,8 @@ const PROVIDERS = {
     apiUrl: 'https://api.deepseek.com/chat/completions',
     keyUrl: 'https://platform.deepseek.com/api_keys',
     models: [
-      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (推荐)' },
-      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (快速)' },
+      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (推荐·纯文本)' },
+      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (快速·多模态)' },
     ],
   },
   doubao: {

@@ -39,12 +39,39 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/index.html',
     }),
-    // Copy PDF.js worker to dist/ so it can be loaded locally
+    // Copy PDF.js worker and Tesseract.js worker + core WASM to dist/
     new CopyPlugin({
       patterns: [
         {
           from: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
           to: 'pdf.worker.min.mjs',
+        },
+        // Tesseract.js worker (runs in a Web Worker thread)
+        {
+          from: 'node_modules/tesseract.js/dist/worker.min.js',
+          to: 'tesseract/worker.min.js',
+        },
+        // Tesseract.js core WASM (compiled OCR engine) — both standard and relaxedsimd
+        {
+          from: 'node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js',
+          to: 'tesseract/tesseract-core-lstm.wasm.js',
+        },
+        {
+          from: 'node_modules/tesseract.js-core/tesseract-core-lstm.wasm',
+          to: 'tesseract/tesseract-core-lstm.wasm',
+        },
+        {
+          from: 'node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm.js',
+          to: 'tesseract/tesseract-core-relaxedsimd-lstm.wasm.js',
+        },
+        {
+          from: 'node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm',
+          to: 'tesseract/tesseract-core-relaxedsimd-lstm.wasm',
+        },
+        // Tesseract language data (chi_sim + eng traineddata)
+        {
+          from: 'src/tesseract/tessdata',
+          to: 'tesseract/tessdata',
         },
       ],
     }),

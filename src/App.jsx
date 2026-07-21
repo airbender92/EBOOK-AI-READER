@@ -149,12 +149,16 @@ export default function App() {
   }, [openBook]);
 
   // ===================== AI Action from Floating Bar =====================
-  // ReaderView dispatches 'ai-action' with { mode, text } when user clicks a button in the floating toolbar
+  // ReaderView dispatches 'ai-action' with { mode, text, imageDataURL? } when
+  // the user clicks a button in the floating toolbar. Image actions also
+  // carry imageDataURL so the AI panel can actually receive the picture.
+  const [pendingImage, setPendingImage] = useState(null); // data URL to inject into the AI panel
   useEffect(() => {
     function handleAIActionEvent(e) {
-      const { mode, text } = e.detail;
+      const { mode, text, imageDataURL } = e.detail || {};
       setSelectedText(text);
       setAiMode(mode);
+      if (imageDataURL) setPendingImage(imageDataURL);
       setAiPanelOpen(true);
     }
     window.addEventListener('ai-action', handleAIActionEvent);
@@ -281,6 +285,8 @@ export default function App() {
               settings={settings}
               book={currentBook}
               currentPage={currentPage}
+              pendingImage={pendingImage}
+              onPendingImageConsumed={() => setPendingImage(null)}
               onClose={() => setAiPanelOpen(false)}
             />
           </div>

@@ -125,6 +125,31 @@
   font-family: 'Georgia', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
 }
 
+/* ===================== Image Selection Mask ===================== */
+/* Dashed border overlay shown when the user hovers a <canvas> or <img>.
+   It is fixed-positioned over the element and carries the toolbar actions. */
+.img-selection-mask {
+  position: fixed;
+  display: none;
+  z-index: 99998;
+  pointer-events: none;
+  border: 2px dashed #4f6ef7;
+  border-radius: 4px;
+  background: rgba(79, 110, 247, 0.08);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+  animation: img-mask-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes img-mask-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+  50%      { box-shadow: 0 0 0 3px rgba(79,110,247,0.55); }
+}
+
+.dark .img-selection-mask {
+  border-color: #6e8aff;
+  background: rgba(110, 138, 255, 0.12);
+}
+
 /* ===================== Floating Selection Bar ===================== */
 .sel-bar {
   position: fixed;
@@ -193,3 +218,128 @@
 .reader-view ::selection {
   background: rgba(79, 110, 247, 0.25);
 }
+
+/* ===================== OCR Result Modal ===================== */
+/* WeChat-style panel that shows the text extracted from a hovered image. */
+.ocr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ocr-fade 0.15s ease;
+}
+
+@keyframes ocr-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ocr-modal {
+  width: 520px;
+  max-width: calc(100vw - 40px);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #fff);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.ocr-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, rgba(0,0,0,0.08));
+}
+
+.ocr-modal-title { font-size: 14px; font-weight: 600; color: var(--text-primary, #1a1a2e); }
+
+.ocr-modal-close {
+  width: 26px; height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary, #888);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+.ocr-modal-close:hover:not(:disabled) { background: var(--bg-hover, rgba(0,0,0,0.06)); color: var(--text-primary); }
+.ocr-modal-close:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ocr-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  min-height: 140px;
+}
+
+.ocr-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px 0;
+  color: var(--text-secondary, #555);
+  font-size: 13px;
+}
+
+.ocr-error {
+  padding: 10px 12px;
+  background: #fef2f2;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.ocr-result {
+  width: 100%;
+  min-height: 200px;
+  max-height: 50vh;
+  border: 1px solid var(--border, rgba(0,0,0,0.08));
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary, #1a1a2e);
+  background: var(--bg-secondary, #f7f8fa);
+  resize: vertical;
+  font-family: 'Georgia', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
+  outline: none;
+  user-select: text;
+}
+.ocr-result:focus { border-color: var(--accent, #4f6ef7); }
+
+.ocr-modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-light, rgba(0,0,0,0.05));
+  justify-content: flex-end;
+}
+
+.ocr-footer-btn {
+  padding: 7px 16px;
+  border: 1px solid var(--border, rgba(0,0,0,0.12));
+  border-radius: 6px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ocr-footer-btn:hover { background: var(--bg-hover, rgba(0,0,0,0.04)); }
+.ocr-footer-btn.primary {
+  background: linear-gradient(135deg, #4f6ef7, #6e8aff);
+  color: #fff;
+  border-color: transparent;
+}
+.ocr-footer-btn.primary:hover { background: linear-gradient(135deg, #3b5de7, #5b78f0); }

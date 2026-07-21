@@ -15,7 +15,7 @@ const AI_MODES = [
   { id: 'ask', label: '提问', prompt: (t) => `关于以下内容，请提出3个深度问题并逐一回答：\n\n"${t}"` },
 ];
 
-export default function AIPanel({ selectedText, aiMode, settings, book, onClose }) {
+export default function AIPanel({ selectedText, aiMode, settings, book, currentPage, pendingImage, onPendingImageConsumed, onClose }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,12 +46,34 @@ export default function AIPanel({ selectedText, aiMode, settings, book, onClose 
   useEffect(() => { if (selectedText) setContextText(selectedText); }, [selectedText]);
 
   // AI mode trigger
+  // Handles both text modes (from AI_MODES) and the two image modes:
+  //   - 'ocr':        send the image with a 请提取图中所有文字 prompt (auto-send)
+  //   - 'add-image':  just drop the image into the preview bar, wait for the user's question
   useEffect(() => {
-    if (!aiMode || !selectedText) return;
+    if (!aiMode) return;
+
+    // Image modes
+    if (aiMode === 'ocr' && pendingImage) {
+      handleSend(
+        '请提取这张图片中的所有文字，保持原有排版和段落结构，只输出识别到的文字内容。',
+        '提取文字', '图片', [{ dataURL: pendingImage, name: '图片.png' }]
+      );
+      onPendingImageConsumed?.();
+      return;
+    }
+    if (aiMode === 'add-image' && pendingImage) {
+      setImages(prev => [...prev, { dataURL: pendingImage, name: '图片.png' }]);
+      setContextText('');
+      onPendingImageConsumed?.();
+      return;
+    }
+
+    // Text modes
+    if (!selectedText) return;
     const mode = AI_MODES.find(m => m.id === aiMode);
     if (!mode) return;
     handleSend(mode.prompt(selectedText), mode.label, selectedText, []);
-  }, [aiMode]);
+  }, [aiMode, pendingImage]);
 
   // ---- Image handling ----
   const addImages = (files) => {

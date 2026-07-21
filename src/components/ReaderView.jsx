@@ -8,6 +8,7 @@
  * Selection: mouseup + selectionchange → floating toolbar (fixed positioned).
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { extractText, terminateOCR } from '../utils/ocr';
 import './ReaderView.css';
 
 function base64ToAB(b64) {
@@ -16,11 +17,40 @@ function base64ToAB(b64) {
   return bytes.buffer;
 }
 
+// Convert a <canvas> or <img> element into a PNG data URL.
+// Used by the image toolbar (copy / OCR / add-to-chat) — must NOT rely on
+// `:hover` since the cursor is on the toolbar button by the time of the click.
+async function elementToDataURL(el) {
+  if (!el) return null;
+  if (el.tagName === 'CANVAS') {
+    try { return el.toDataURL('image/png'); } catch (_) { return null; }
+  }
+  if (el.tagName === 'IMG') {
+    const src = el.src || '';
+    if (src.startsWith('data:')) return src;
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = el.naturalWidth || el.width || 1;
+      cv.height = el.naturalHeight || el.height || 1;
+      cv.getContext('2d').drawImage(el, 0, 0);
+      return cv.toDataURL('image/png');
+    } catch (_) { return src || null; }
+  }
+  return null;
+}
+
+async function dataURLToBlob(dataURL) {
+  const res = await fetch(dataURL);
+  return res.blob();
+}
+
 export default function ReaderView({ book, fontSize, darkMode, zoomLevel, currentPage, onPageChange, onTextSelect, bookmarks }) {
   const containerRef = useRef(null);
   const pagesRef = useRef(null);
   const barRef = useRef(null);
   const selRef = useRef('');
+  const hoveredImageRef = useRef(null);   // tracks the last hovered <canvas>/<img> so button clicks can access it
+  const imageMaskRef = useRef(null);      // the floating dashed-border overlay element
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,6 +59,9 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
   const [epubHtml, setEpubHtml] = useState('');
   const [txtPages, setTxtPages] = useState([]);
   const [bar, setBar] = useState({ on: false, text: '', pv: '', l: 0, t: 0 });
+
+  // OCR (extract text from image) state
+  const [ocrState, setOcrState] = useState({ loading: false, progress: 0, result: '', error: '', open: false });
 
   const lastBook = useRef(null);
 
@@ -190,8 +223,24 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
   // 2) Hover: mousemove finds text block / image and shows bar
   // - Bar stays visible when mouse enters it (prevents flicker)
   // - Text: extract text from smallest text-bearing ancestor
-  // - Image (canvas/img): show "识别图中文字" + "复制图片"
+  // - Image (canvas/img): show a dashed selection mask + toolbar with
+  //   复制图片 / 提取文字(OCR) / 添加到对话. The hovered element is stored in
+  //   hoveredImageRef so button click handlers don't depend on `:hover`
+  //   (which fails once the cursor moves onto the toolbar).
   const barHoverRef = useRef(false);
+
+  // Position/size the dashed mask overlay over a given element's bounding rect.
+  function placeMask(el) {
+    if (!imageMaskRef.current) return;
+    if (!el) { imageMaskRef.current.style.display = 'none'; return; }
+    const r = el.getBoundingClientRect();
+    const m = imageMaskRef.current;
+    m.style.display = 'block';
+    m.style.left = r.left + 'px';
+    m.style.top = r.top + 'px';
+    m.style.width = r.width + 'px';
+    m.style.height = r.height + 'px';
+  }
 
   useEffect(() => {
     const ct = containerRef.current;
@@ -205,6 +254,8 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     }
     function clearHighlight() {
       if (prevBlock) { prevBlock.style.background = ''; prevBlock.style.borderRadius = ''; prevBlock = null; }
+      placeMask(null);
+      hoveredImageRef.current = null;
     }
 
     function findTarget(e) {
@@ -229,6 +280,9 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     function showBar(target) {
       const rect = target.el.getBoundingClientRect();
       if (target.type === 'image') {
+        // Track the hovered image so click handlers can read it later.
+        hoveredImageRef.current = target.el;
+        placeMask(target.el);
         selRef.current = '__IMAGE__';
         if (onTextSelect) onTextSelect('__IMAGE__');
         let top = rect.top; if (top < 40) top = rect.bottom;
@@ -262,6 +316,20 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     return () => { ct.removeEventListener('mousemove', onMove); ct.removeEventListener('mouseleave', onLeave); };
   }, [onTextSelect]);
 
+  // Keep the image mask aligned to the hovered image while scrolling/resizing
+  useEffect(() => {
+    function update() {
+      if (hoveredImageRef.current && bar.image) placeMask(hoveredImageRef.current);
+      else if (!bar.on) placeMask(null);
+    }
+    document.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      document.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [bar.image, bar.on]);
+
   const hideBar = useCallback(() => {
     setTimeout(() => { if (!barRef.current?.matches(':hover')) setBar(s=>s.on?{...s,on:false}:s); }, 150);
   }, []);
@@ -286,27 +354,69 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     window.dispatchEvent(new CustomEvent('ai-action',{detail:{mode,text:selRef.current}}));
     setBar(s=>({...s,on:false})); window.getSelection()?.removeAllRanges();
   }, []);
-  const cop = useCallback(() => {
+  const cop = useCallback(async () => {
     if (!selRef.current) return;
     if (selRef.current === '__IMAGE__') {
-      // Copy the underlying canvas/img to clipboard
-      const sel = document.querySelector('.sel-bar');
-      // We tracked the highlighted element via bg color; fallback: find canvas under last mouse pos
-      const cv = document.querySelector('canvas:hover') || document.querySelector('img:hover');
-      if (cv) {
-        if (cv.tagName === 'CANVAS') {
-          cv.toBlob(b => b && navigator.clipboard.write?.([new ClipboardItem({'image/png': b})]).catch(()=>{}));
-        } else {
-          // For img: fetch the data URL
-          const url = cv.src;
-          if (url) navigator.clipboard.writeText(url).catch(()=>{});
-        }
+      // Copy the hovered canvas/img to clipboard.
+      // Use the tracked ref instead of `:hover` — the cursor is already on
+      // the toolbar button by the time of the click, so :hover would be null.
+      const el = hoveredImageRef.current;
+      const dataURL = await elementToDataURL(el);
+      if (!dataURL) {
+        navigator.clipboard.writeText('[复制图片失败：无法读取图片数据]').catch(()=>{});
+        setBar(s=>({...s,on:false})); placeMask(null); hoveredImageRef.current = null;
+        return;
       }
-      setBar(s=>({...s,on:false}));
+      try {
+        if (navigator.clipboard?.write && window.ClipboardItem) {
+          const blob = await dataURLToBlob(dataURL);
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } else {
+          await navigator.clipboard.writeText(dataURL);
+        }
+      } catch (_) {
+        // Fallback: write the data URL as plain text
+        navigator.clipboard.writeText(dataURL).catch(()=>{});
+      }
+      setBar(s=>({...s,on:false})); placeMask(null); hoveredImageRef.current = null;
       return;
     }
     navigator.clipboard.writeText(selRef.current).catch(()=>{});
     setBar(s=>({...s,on:false})); window.getSelection()?.removeAllRanges();
+  }, []);
+
+  // OCR the hovered image locally with Tesseract.js (WeChat-style extraction).
+  // Previously this dispatched the raw image to the AI chat model, which only
+  // works for multimodal models and produced garbled text. We now run OCR
+  // on-device and show the result in a dedicated modal.
+  const ocrImage = useCallback(async () => {
+    const el = hoveredImageRef.current;
+    const dataURL = await elementToDataURL(el);
+    if (!dataURL) { setBar(s=>({...s,on:false})); return; }
+    setBar(s=>({...s,on:false})); placeMask(null); hoveredImageRef.current = null;
+    setOcrState({ loading: true, progress: 0, result: '', error: '', open: true });
+    try {
+      const { text } = await extractText(dataURL, {
+        onProgress: (p) => setOcrState(s => ({ ...s, progress: Math.round(p * 100) })),
+      });
+      setOcrState({ loading: false, progress: 100, result: text || '(未识别到文字)', error: '', open: true });
+    } catch (err) {
+      setOcrState({ loading: false, progress: 0, result: '', error: `识别失败：${err?.message || err}`, open: true });
+    }
+  }, []);
+
+  // Clean up the OCR worker when the component unmounts.
+  useEffect(() => () => { terminateOCR().catch(() => {}); }, []);
+
+  // Add the hovered image to the AI conversation as an uploaded image.
+  const addImageToChat = useCallback(async () => {
+    const el = hoveredImageRef.current;
+    const dataURL = await elementToDataURL(el);
+    if (!dataURL) { setBar(s=>({...s,on:false})); return; }
+    window.dispatchEvent(new CustomEvent('ai-action', {
+      detail: { mode: 'add-image', text: '__IMAGE__', imageDataURL: dataURL }
+    }));
+    setBar(s=>({...s,on:false})); placeMask(null); hoveredImageRef.current = null;
   }, []);
 
   // ---- Page scroll tracking ----
@@ -348,17 +458,23 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
         <pre className="reader-txt" style={{fontSize:fontSize+'px',lineHeight:1.8,padding:'20px 30px',margin:0,whiteSpace:'pre-wrap',color:darkMode?'#e4e6eb':'#1a1a2e',cursor:'text',userSelect:'text'}}>{txtPages[0]}</pre>
       )}
 
+      {/* Image selection mask (dashed overlay) — fixed-positioned over the hovered image */}
+      <div ref={imageMaskRef} className="img-selection-mask" aria-hidden="true" />
+
       {/* Floating bar — always in DOM, position:fixed, opacity toggle */}
       <div ref={barRef} className={`sel-bar${bar.on?' on':''}`}
         style={{left:bar.l+'px',top:bar.t+'px',transform:'translate(-50%,-100%)',pointerEvents:bar.on?'auto':'none'}}
         onMouseEnter={() => { barHoverRef.current = true; }}
-        onMouseLeave={() => { barHoverRef.current = false; setBar(s => s.on ? { ...s, on: false } : s); }}>
+        onMouseLeave={() => { barHoverRef.current = false; setBar(s => s.on ? { ...s, on: false } : s); placeMask(null); hoveredImageRef.current = null; }}>
         <span className="sel-prev" title={bar.text||bar.pv}>{bar.pv||bar.text}</span>
         <div className="sel-acts">
           {bar.image ? (
             <>
+              <button onClick={ocrImage} disabled={ocrState.loading}>
+                {ocrState.loading ? `识别中 ${ocrState.progress}%` : '提取文字'}
+              </button>
               <button onClick={cop}>复制图片</button>
-              <button onClick={()=>{ window.dispatchEvent(new CustomEvent('ai-action',{detail:{mode:'ask',text:'__IMAGE__',image:document.querySelector('canvas:hover,img:hover')}})); setBar(s=>({...s,on:false})); }} className="ask">识别文字</button>
+              <button onClick={addImageToChat} className="ask">添加到对话</button>
             </>
           ) : (
             <>
@@ -371,6 +487,39 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
           )}
         </div>
       </div>
+
+      {/* OCR result modal (WeChat-style extracted-text panel) */}
+      {ocrState.open && (
+        <div className="ocr-modal-overlay" onClick={() => !ocrState.loading && setOcrState(s => ({ ...s, open: false }))}>
+          <div className="ocr-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ocr-modal-header">
+              <span className="ocr-modal-title">提取文字</span>
+              <button className="ocr-modal-close" onClick={() => !ocrState.loading && setOcrState(s => ({ ...s, open: false }))} disabled={ocrState.loading}>✕</button>
+            </div>
+            <div className="ocr-modal-body">
+              {ocrState.loading ? (
+                <div className="ocr-loading">
+                  <div className="spinner" />
+                  <span>正在识别文字… {ocrState.progress}%</span>
+                </div>
+              ) : ocrState.error ? (
+                <div className="ocr-error">{ocrState.error}</div>
+              ) : (
+                <textarea className="ocr-result" value={ocrState.result} readOnly spellCheck={false} />
+              )}
+            </div>
+            {!ocrState.loading && !ocrState.error && (
+              <div className="ocr-modal-footer">
+                <button className="ocr-footer-btn" onClick={() => { navigator.clipboard.writeText(ocrState.result).catch(()=>{}); }}>复制文字</button>
+                <button className="ocr-footer-btn primary" onClick={() => {
+                  window.dispatchEvent(new CustomEvent('ai-action', { detail: { mode: 'explain', text: ocrState.result } }));
+                  setOcrState(s => ({ ...s, open: false }));
+                }}>发送到 AI</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

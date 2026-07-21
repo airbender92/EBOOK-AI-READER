@@ -36,6 +36,7 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.map': 'application/json',
+  '.wasm': 'application/wasm',
 };
 
 let mainWindow = null;
@@ -52,6 +53,8 @@ function createWindow() {
       contextIsolation: true,  // Security: isolate renderer from Node
       nodeIntegration: false,  // Security: disable Node in renderer
       sandbox: false,          // Needed for preload to use Node APIs
+      webSecurity: false,      // Allow importScripts to load file:// URLs (cross-origin)
+                               // Safe here: all tesseract assets are local, bundled files.
     },
     // Custom protocol requires a URL, not a file path
     backgroundColor: '#ffffff',
@@ -229,9 +232,31 @@ app.whenReady().then(() => {
   // This enables module workers (.mjs) and fetch API in the renderer.
   protocol.handle('app', (request) => {
     const url = new URL(request.url);
-    let filePath = path.join(DIST_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
 
-    // Default to index.html for SPA routing
+    // Resolve the local file path from the app:// URL.
+    // The app:// protocol is non-standard, so URL parsing produces varied formats:
+    //   app://index.html           → host=index.html, path=/  → dist/index.html
+    //   app://index.html/bundle.js → host=index.html, path=/bundle.js → dist/bundle.js
+    //   app://tesseract/worker.min.js → host=tesseract, path=/worker.min.js → dist/tesseract/worker.min.js
+    //   app:///tesseract/worker.min.js → host=(empty), path=/tesseract/worker.min.js → same
+    // Strategy: try hostname+pathname first, then pathname alone, then fallback.
+    let filePath;
+    if (url.pathname === '/') {
+      filePath = path.join(DIST_DIR, url.hostname || 'index.html');
+    } else if (url.hostname) {
+      // Try host+path first (for subdirectories like tesseract/),
+      // then fall back to path-only (for relative URLs like bundle.js).
+      const combined = path.join(DIST_DIR, url.hostname, url.pathname);
+      if (fs.existsSync(combined) && !fs.statSync(combined).isDirectory()) {
+        filePath = combined;
+      } else {
+        filePath = path.join(DIST_DIR, url.pathname);
+      }
+    } else {
+      filePath = path.join(DIST_DIR, url.pathname);
+    }
+
+    // SPA fallback for missing files
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       filePath = path.join(DIST_DIR, 'index.html');
     }

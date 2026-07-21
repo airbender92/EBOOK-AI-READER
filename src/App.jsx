@@ -10,6 +10,7 @@ import ReaderView from './components/ReaderView';
 import AIPanel from './components/AIPanel';
 import BookList from './components/BookList';
 import SettingsModal from './components/SettingsModal';
+import { saveReadingProgress, loadReadingProgress } from './utils/storage';
 
 export default function App() {
   // ===================== State =====================
@@ -99,10 +100,19 @@ export default function App() {
     document.body.className = darkMode ? 'dark-mode' : '';
   }, [darkMode]);
 
+  // Persist PDF reading progress when page/total changes
+  useEffect(() => {
+    if (!initialized.current || !currentBook) return;
+    if (currentBook.format === 'pdf' && totalPages > 1) {
+      saveReadingProgress(currentBook.filePath, currentPage, totalPages);
+    }
+  }, [currentBook, currentPage, totalPages]);
+
   // ===================== Book Management =====================
 
   /**
-   * Open a book: from file dialog or recent books list.
+   * Open a book: from file dialog, recent books list, or bookmark.
+   * Restores the last reading position when available.
    */
   const openBook = useCallback(async (bookData) => {
     let book = bookData;
@@ -111,15 +121,31 @@ export default function App() {
     }
     if (!book) return;
 
-    setCurrentBook(book);
-    setCurrentPage(1);
+    // Resolve initial position: explicit bookmark page > saved progress > default 1
+    let initialPage = 1;
+    let initialScrollRatio = null;
+    if (book.initialPage) {
+      initialPage = book.initialPage;
+    } else {
+      const progress = await loadReadingProgress(book.filePath);
+      if (progress) {
+        initialPage = progress.page || 1;
+        initialScrollRatio = progress.scrollRatio || null;
+      }
+    }
+
+    setCurrentBook({ ...book, initialScrollRatio });
+    setCurrentPage(initialPage);
     setTotalPages(1);
     setShowBookList(false);
 
-    // Add to recent books (avoid duplicates by filePath)
+    // Add to recent books (avoid duplicates by filePath); don't persist temp fields
+    const recentEntry = { ...book };
+    delete recentEntry.initialPage;
+    delete recentEntry.initialScrollRatio;
     setRecentBooks((prev) => {
       const filtered = prev.filter((b) => b.filePath !== book.filePath);
-      return [book, ...filtered].slice(0, 20); // Keep last 20
+      return [recentEntry, ...filtered].slice(0, 20); // Keep last 20
     });
   }, []);
 

@@ -48,19 +48,20 @@ export async function writeStorage(filename, data) {
 /**
  * Save reading progress for a specific book.
  * @param {string} bookPath - Unique book file path
- * @param {number} page - Current page number
+ * @param {number} page - Current page number (or scroll percentage for EPUB/TXT)
  * @param {number} totalPages - Total pages
+ * @param {number|null} scrollRatio - Optional scroll ratio (0-1) for EPUB/TXT
  */
-export async function saveReadingProgress(bookPath, page, totalPages) {
+export async function saveReadingProgress(bookPath, page, totalPages, scrollRatio = null) {
   const progress = (await readStorage('reading-progress.json')) || {};
-  progress[bookPath] = { page, totalPages, updatedAt: Date.now() };
+  progress[bookPath] = { page, totalPages, scrollRatio, updatedAt: Date.now() };
   return writeStorage('reading-progress.json', progress);
 }
 
 /**
  * Load reading progress for a specific book.
  * @param {string} bookPath - Unique book file path
- * @returns {Promise<{page: number, totalPages: number}|null>}
+ * @returns {Promise<{page: number, totalPages: number, scrollRatio: number|null}|null>}
  */
 export async function loadReadingProgress(bookPath) {
   const progress = await readStorage('reading-progress.json');

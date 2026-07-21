@@ -29,13 +29,8 @@ export default function BookList({ recentBooks, bookmarks, onSelectBook, onClose
       const ext = bookmark.bookPath.split('.').pop().toLowerCase();
       const bookData = await window.electronAPI.readBookByPath(bookmark.bookPath, ext);
       if (bookData) {
-        onSelectBook(bookData);
-        // Jump to bookmarked page after a short delay (book needs to load)
-        setTimeout(() => {
-          window.dispatchEvent(
-            new CustomEvent('jump-to-page', { detail: bookmark.page })
-          );
-        }, 500);
+        // Pass the bookmarked page so ReaderView can jump after the book loads
+        onSelectBook({ ...bookData, initialPage: bookmark.page });
       }
     }
   };

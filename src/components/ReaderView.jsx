@@ -9,6 +9,7 @@
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { extractText, terminateOCR } from '../utils/ocr';
+import { saveReadingProgress } from '../utils/storage';
 import './ReaderView.css';
 
 function base64ToAB(b64) {
@@ -89,8 +90,14 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
     const doc = await pdfjsLib.getDocument({ data: buf }).promise;
     setPdfDoc(doc); setPdfTotalPages(doc.numPages);
-    onPageChange(1, doc.numPages);
-    setTimeout(() => renderAllPages(doc, pdfjsLib), 50);
+    const targetPage = Math.max(1, Math.min(currentPage, doc.numPages));
+    onPageChange(targetPage, doc.numPages);
+    setTimeout(() => renderAllPages(doc, pdfjsLib).then(() => jumpToPage(targetPage)), 50);
+  }
+
+  function jumpToPage(page) {
+    const el = containerRef.current?.querySelector(`[data-page="${page}"]`);
+    if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' });
   }
 
   async function renderAllPages(doc, lib) {
@@ -195,6 +202,7 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     }
     setEpubHtml(`<div style="font-size:${fontSize}px;line-height:1.8;color:${darkMode?'#e4e6eb':'#1a1a2e'};padding:16px;user-select:text;-webkit-user-select:text;cursor:text">${h}</div>`);
     onPageChange(1,1);
+    restoreScrollRatio();
   }
 
   // ---- TXT ----
@@ -202,6 +210,19 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     let t = new TextDecoder('utf-8').decode(new Uint8Array(buf));
     if (t.includes('\ufffd')) t = new TextDecoder('gbk').decode(new Uint8Array(buf));
     setTxtPages([t]); onPageChange(1,1);
+    restoreScrollRatio();
+  }
+
+  // Restore saved scroll ratio for EPUB/TXT after content renders
+  function restoreScrollRatio() {
+    const ratio = book?.initialScrollRatio;
+    if (ratio == null || !containerRef.current) return;
+    setTimeout(() => {
+      const c = containerRef.current;
+      if (c && c.scrollHeight > c.clientHeight) {
+        c.scrollTop = ratio * (c.scrollHeight - c.clientHeight);
+      }
+    }, 50);
   }
 
   // ============== SELECTION + HOVER + FLOATING BAR ==============
@@ -442,6 +463,24 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
     el.addEventListener('scroll', sc,{passive:true});
     return ()=>el.removeEventListener('scroll',sc);
   }, [pdfTotalPages, book?.format]);
+
+  // ---- EPUB/TXT scroll progress tracking ----
+  useEffect(() => {
+    if (!containerRef.current || !book || book.format === 'pdf') return;
+    const el = containerRef.current;
+    let t;
+    function sc() {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const ratio = el.scrollHeight > el.clientHeight
+          ? el.scrollTop / (el.scrollHeight - el.clientHeight)
+          : 0;
+        saveReadingProgress(book.filePath, 1, 1, ratio);
+      }, 300);
+    }
+    el.addEventListener('scroll', sc, { passive: true });
+    return () => { el.removeEventListener('scroll', sc); clearTimeout(t); };
+  }, [book]);
 
   // ---- Jump to page ----
   useEffect(() => {

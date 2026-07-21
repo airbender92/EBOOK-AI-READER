@@ -3,7 +3,9 @@
  * Handles window creation, native file dialogs, and IPC communication.
  * All Node.js APIs are centralized here — the renderer only gets what preload exposes.
  */
-const { app, BrowserWindow, dialog, ipcMain, Menu, protocol, net } = require('electron');
+const {
+  app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, protocol, net,
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -222,6 +224,23 @@ ipcMain.handle('book:readByPath', async (_event, filePath, fileFormat) => {
   } catch (err) {
     console.error(`book:readByPath error:`, err.message);
     return null;
+  }
+});
+
+/**
+ * Copy an image (as a data URL) to the system clipboard.
+ * Using the main-process clipboard avoids the renderer async clipboard API's
+ * limitations under custom protocols, which caused images to paste as base64
+ * text in apps like WeChat.
+ */
+ipcMain.handle('clipboard:copyImage', async (_event, dataURL) => {
+  try {
+    const image = nativeImage.createFromDataURL(dataURL);
+    clipboard.writeImage(image);
+    return true;
+  } catch (err) {
+    console.error('clipboard:copyImage error:', err.message);
+    return false;
   }
 });
 

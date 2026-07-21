@@ -31,4 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {object} data - JSON-serializable data
    */
   writeStorage: (filename, data) => ipcRenderer.invoke('storage:write', filename, data),
+
+  /**
+   * Copy an image (as a PNG data URL) to the system clipboard.
+   * Returns true on success, false on failure.
+   */
+  copyImage: (dataURL) => ipcRenderer.invoke('clipboard:copyImage', dataURL),
 });

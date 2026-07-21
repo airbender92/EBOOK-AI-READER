@@ -367,16 +367,25 @@ export default function ReaderView({ book, fontSize, darkMode, zoomLevel, curren
         setBar(s=>({...s,on:false})); placeMask(null); hoveredImageRef.current = null;
         return;
       }
-      try {
-        if (navigator.clipboard?.write && window.ClipboardItem) {
-          const blob = await dataURLToBlob(dataURL);
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        } else {
-          await navigator.clipboard.writeText(dataURL);
+      // Prefer the main-process clipboard: it reliably writes a real image
+      // that pastes correctly in WeChat/QQ/etc. The renderer's async
+      // clipboard API often falls back to text under custom protocols.
+      let copied = false;
+      if (window.electronAPI?.copyImage) {
+        copied = await window.electronAPI.copyImage(dataURL);
+      }
+      if (!copied) {
+        try {
+          if (navigator.clipboard?.write && window.ClipboardItem) {
+            const blob = await dataURLToBlob(dataURL);
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          } else {
+            await navigator.clipboard.writeText(dataURL);
+          }
+        } catch (_) {
+          // Fallback: write the data URL as plain text
+          navigator.clipboard.writeText(dataURL).catch(()=>{});
         }
-      } catch (_) {
-        // Fallback: write the data URL as plain text
-        navigator.clipboard.writeText(dataURL).catch(()=>{});
       }
       setBar(s=>({...s,on:false})); placeMask(null); hoveredImageRef.current = null;
       return;
